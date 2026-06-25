@@ -1,0 +1,16 @@
+body{
+font-family:Arial;
+padding:20px;
+text-align:center;
+}
+
+input,select,button{
+padding:10px;
+margin:10px;
+}
+
+.task{
+border:1px solid black;
+padding:10px;
+margin:10px;
+}
