@@ -1,18 +1,20 @@
-# TaskPilot AI
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+</div>
 
-An AI-powered productivity assistant that helps users manage tasks, deadlines, and priorities efficiently.
+# Run and deploy your AI Studio app
 
-## Features
-- Add and manage tasks
-- Set deadlines
-- Priority levels (High, Medium, Low)
-- AI-based task suggestions
-- User-friendly interface
+This contains everything you need to run your app locally.
 
-## Technologies Used
-- HTML
-- CSS
-- JavaScript
+View your app in AI Studio: https://ai.studio/apps/7003ce5e-9848-4273-9a23-06485b39403e
 
-## Author
-Chandani
+## Run Locally
+
+**Prerequisites:**  Node.js
+
+
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

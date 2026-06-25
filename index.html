@@ -1,32 +1,13 @@
-<!DOCTYPE html>
-<html>
-<head>
-<title>TaskPilot AI</title>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-
-<h1>TaskPilot AI</h1>
-
-<input type="text" id="task" placeholder="Enter Task">
-
-<input type="datetime-local" id="deadline">
-
-<select id="priority">
-<option>High</option>
-<option>Medium</option>
-<option>Low</option>
-</select>
-
-<button onclick="addTask()">Add Task</button>
-
-<button onclick="getSuggestion()">
-AI Suggestion
-</button>
-
-<div id="taskList"></div>
-
-<script src="script.js"></script>
-
-</body>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TaskPilot AI — Your Strategic Productivity Assistant</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
+
