@@ -20,6 +20,12 @@ export interface AIAnalysis {
   estimatedHours: number;
 }
 
+export interface TaskLocation {
+  name: string;
+  lat: number;
+  lng: number;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -31,6 +37,7 @@ export interface Task {
   createdAt: string;
   completedAt?: string;
   aiAnalysis?: AIAnalysis;
+  location?: TaskLocation;
 }
 
 export interface ChatMessage {

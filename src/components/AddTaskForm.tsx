@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
 import { Priority, Category, Task, AIAnalysis, UserType } from '../types';
-import { Plus, Sparkles, Loader2, Calendar, AlertCircle, HelpCircle } from 'lucide-react';
+import { Plus, Sparkles, Loader2, Calendar, AlertCircle, HelpCircle, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface AddTaskFormProps {
   onAddTask: (task: Task) => void;
   userType: UserType;
 }
+
+const PRESETS = [
+  { name: 'Patna Center', lat: '25.5941', lng: '85.1376' },
+  { name: 'SF Tech District', lat: '37.7749', lng: '-122.4194' },
+  { name: 'NYC Headquarters', lat: '40.7128', lng: '-74.0060' },
+  { name: 'London Office', lat: '51.5308', lng: '-0.1238' },
+  { name: 'Tokyo Office', lat: '35.6586', lng: '139.7454' }
+];
 
 export default function AddTaskForm({ onAddTask, userType }: AddTaskFormProps) {
   const [title, setTitle] = useState('');
@@ -20,6 +28,12 @@ export default function AddTaskForm({ onAddTask, userType }: AddTaskFormProps) {
   });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // GIS Location States
+  const [hasLocation, setHasLocation] = useState(false);
+  const [locationName, setLocationName] = useState('');
+  const [latitude, setLatitude] = useState('25.5941');
+  const [longitude, setLongitude] = useState('85.1376');
 
   // Fallback Analyzer: parses details locally if API is unavailable or fails
   const getFallbackAnalysis = (
@@ -124,6 +138,12 @@ export default function AddTaskForm({ onAddTask, userType }: AddTaskFormProps) {
     setErrorMsg(null);
 
     const currentDateStr = new Date().toISOString().split('T')[0];
+    
+    const locationObj = hasLocation ? {
+      name: locationName.trim() || 'Patna Center',
+      lat: parseFloat(latitude) || 25.5941,
+      lng: parseFloat(longitude) || 85.1376
+    } : undefined;
 
     try {
       const response = await fetch('/api/analyze-task', {
@@ -156,11 +176,16 @@ export default function AddTaskForm({ onAddTask, userType }: AddTaskFormProps) {
         completed: false,
         createdAt: new Date().toISOString(),
         aiAnalysis,
+        location: locationObj,
       };
 
       onAddTask(newTask);
       setTitle('');
       setDescription('');
+      setHasLocation(false);
+      setLocationName('');
+      setLatitude('25.5941');
+      setLongitude('85.1376');
     } catch (err: any) {
       console.warn('AI Analysis failed, applying local fallback analysis rules.', err);
       // Run the client-side fallback so user is NEVER blocked
@@ -176,11 +201,16 @@ export default function AddTaskForm({ onAddTask, userType }: AddTaskFormProps) {
         completed: false,
         createdAt: new Date().toISOString(),
         aiAnalysis: fallbackAnalysis,
+        location: locationObj,
       };
 
       onAddTask(newTask);
       setTitle('');
       setDescription('');
+      setHasLocation(false);
+      setLocationName('');
+      setLatitude('25.5941');
+      setLongitude('85.1376');
       
       // Let user know fallback happened (without breaking layout or popping ugly alerts)
       setErrorMsg('AI API was busy. A fast offline-precision task calculation has been applied!');
@@ -293,6 +323,106 @@ export default function AddTaskForm({ onAddTask, userType }: AddTaskFormProps) {
             />
             <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
           </div>
+        </div>
+
+        {/* GIS Location Section */}
+        <div className="border-t border-slate-100 dark:border-slate-800/60 pt-4">
+          <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+            <input
+              type="checkbox"
+              checked={hasLocation}
+              onChange={(e) => {
+                setHasLocation(e.target.checked);
+                if (e.target.checked && !locationName) {
+                  setLocationName('Patna Center');
+                  setLatitude('25.5941');
+                  setLongitude('85.1376');
+                }
+              }}
+              className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+            />
+            <MapPin className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+            <span>Pin to GIS Map</span>
+          </label>
+
+          {hasLocation && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="space-y-3 pl-6"
+            >
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                  Preset Locations
+                </label>
+                <select
+                  onChange={(e) => {
+                    const preset = PRESETS.find(p => p.name === e.target.value);
+                    if (preset) {
+                      setLocationName(preset.name);
+                      setLatitude(preset.lat);
+                      setLongitude(preset.lng);
+                    } else if (e.target.value === 'Custom') {
+                      setLocationName('');
+                      setLatitude('25.5941');
+                      setLongitude('85.1376');
+                    }
+                  }}
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 focus:outline-none transition-colors"
+                >
+                  <option value="Patna Center">📍 Patna Center, Bihar</option>
+                  <option value="SF Tech District">💼 San Francisco Tech District</option>
+                  <option value="NYC Headquarters">🗽 New York Broadway HQ</option>
+                  <option value="London Office">🇬🇧 London Kings Cross Hub</option>
+                  <option value="Tokyo Office">🗼 Tokyo Ginza Office</option>
+                  <option value="Custom">📍 Custom Coordinate...</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="loc-name" className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                  Location Name
+                </label>
+                <input
+                  id="loc-name"
+                  type="text"
+                  value={locationName}
+                  onChange={(e) => setLocationName(e.target.value)}
+                  placeholder="E.g., Conference Room B"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label htmlFor="loc-lat" className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                    Latitude
+                  </label>
+                  <input
+                    id="loc-lat"
+                    type="number"
+                    step="any"
+                    value={latitude}
+                    onChange={(e) => setLatitude(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="loc-lng" className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                    Longitude
+                  </label>
+                  <input
+                    id="loc-lng"
+                    type="number"
+                    step="any"
+                    value={longitude}
+                    onChange={(e) => setLongitude(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
         </div>
 
         {/* Submit button with loader */}

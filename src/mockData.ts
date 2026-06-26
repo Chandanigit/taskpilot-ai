@@ -26,6 +26,11 @@ export const INITIAL_TASKS: Task[] = [
       actionPlan: 'Write down the three core emotional takeaways you want the audience to remember.',
       timeManagementTechnique: 'Pomodoro (50m Focus / 10m Review)',
       estimatedHours: 2.5
+    },
+    location: {
+      name: 'HQ, Patna, Bihar',
+      lat: 25.5941,
+      lng: 85.1376
     }
   },
   {
@@ -53,6 +58,11 @@ export const INITIAL_TASKS: Task[] = [
       actionPlan: 'Outline the 5 major equations from modules 3-7 on a single cheat sheet.',
       timeManagementTechnique: 'Active Recall Study Blocks',
       estimatedHours: 6.0
+    },
+    location: {
+      name: 'Central Library, Patna',
+      lat: 25.6020,
+      lng: 85.1420
     }
   },
   {
@@ -81,6 +91,11 @@ export const INITIAL_TASKS: Task[] = [
       actionPlan: 'Download and open your credit card statement in a browser window.',
       timeManagementTechnique: '2-Minute Rule / Batching',
       estimatedHours: 1.0
+    },
+    location: {
+      name: 'Exhibition Road Residency, Patna',
+      lat: 25.6110,
+      lng: 85.1440
     }
   }
 ];

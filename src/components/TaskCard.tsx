@@ -11,7 +11,8 @@ import {
   AlertCircle,
   TrendingUp,
   BrainCircuit,
-  Zap
+  Zap,
+  MapPin
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -20,9 +21,10 @@ interface TaskCardProps {
   task: Task;
   onToggleComplete: (id: string) => void;
   onDeleteTask: (id: string) => void;
+  onViewOnMap?: (task: Task) => void;
 }
 
-export default function TaskCard({ task, onToggleComplete, onDeleteTask }: TaskCardProps) {
+export default function TaskCard({ task, onToggleComplete, onDeleteTask, onViewOnMap }: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Helper: Format relative deadline string
@@ -156,6 +158,21 @@ export default function TaskCard({ task, onToggleComplete, onDeleteTask }: TaskC
               </div>
 
               <div className="flex items-center gap-3">
+                {/* View on Map button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onViewOnMap) {
+                      onViewOnMap(task);
+                    }
+                  }}
+                  className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+                  title="View this task location on the map"
+                >
+                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  <span>View on Map</span>
+                </button>
+
                 {/* Delete button (only visible on hover/focus, or always on mobile) */}
                 <button
                   onClick={() => onDeleteTask(task.id)}

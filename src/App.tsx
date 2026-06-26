@@ -4,6 +4,7 @@ import { INITIAL_TASKS } from './mockData';
 import DashboardStats from './components/DashboardStats';
 import AddTaskForm from './components/AddTaskForm';
 import TaskCard from './components/TaskCard';
+import TaskMap from './components/TaskMap';
 import EisenhowerMatrix from './components/EisenhowerMatrix';
 import AIChatAssistant from './components/AIChatAssistant';
 import {
@@ -77,6 +78,9 @@ export default function App() {
     const saved = localStorage.getItem('taskpilot_dark');
     return saved === 'true';
   });
+
+  // Focused Task state for GIS Map interaction
+  const [focusedTask, setFocusedTask] = useState<Task | null>(null);
 
   // Role specific tracking items
   const [studentAssignments, setStudentAssignments] = useState(() => {
@@ -544,7 +548,8 @@ export default function App() {
         <div className="grid grid-cols-1 gap-6">
           {/* VIEW 1: PILOT DASHBOARD (THE MASTERPIECE BENTO GRID) */}
           {activeTab === 'dashboard' && (
-            <div className="grid grid-cols-12 gap-5 items-stretch">
+            <>
+              <div className="grid grid-cols-12 gap-5 items-stretch">
               
               {/* Box 1: Create Task (Left Block) */}
               <div className="col-span-12 lg:col-span-4 lg:row-span-4 flex flex-col">
@@ -654,6 +659,7 @@ export default function App() {
                           task={task}
                           onToggleComplete={handleToggleComplete}
                           onDeleteTask={handleDeleteTask}
+                          onViewOnMap={setFocusedTask}
                         />
                       ))
                     ) : (
@@ -1076,6 +1082,16 @@ export default function App() {
               )}
 
             </div>
+
+            {/* Dedicated "GIS Task Map" Section below the main grid */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs flex flex-col gap-4 mt-6">
+              <div className="flex flex-col">
+                <h2 className="font-sans font-bold text-slate-900 dark:text-white text-lg tracking-tight">GIS Task Map</h2>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Interactive live spatial mapping engine for checked GIS locations</p>
+              </div>
+              <TaskMap tasks={tasks} focusedTask={focusedTask} />
+            </div>
+            </>
           )}
 
           {/* VIEW 2: EISENHOWER DECISION MATRIX */}
