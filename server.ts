@@ -44,28 +44,33 @@ async function startServer() {
 
       const client = getGeminiClient();
 
-      const prompt = `Analyze this task to provide productivity insights, time estimation, and priority analysis:
+      const prompt = `Analyze this task to provide productivity insights, time estimation, subtasks, tips, suggested categorization, insights card, recommendation, and priority analysis:
 - Task Title: ${title}
 - Description: ${description || "No description provided."}
-- User Priority Rating: ${priority || "medium"}
+- User Priority Input: ${priority || "medium"}
 - Target Deadline: ${deadline || "No deadline"}
 - Category: ${category || "Other"}
 - User Profile: ${userType || "general"}
 - Current Date/Time of Context: ${currentDate || "today"}
 
-Determine its placement on the Eisenhower Matrix ('Urgent & Important', 'Important but Not Urgent', 'Urgent but Not Important', or 'Not Urgent & Not Important') and score its urgency and importance from 1 to 10 based on the deadline, user type, and task nature. Provide 3 highly actionable, concrete focus suggestions, a suggested starting step (actionPlan), a recommended time management technique, and estimated effort in hours.`;
+Determine:
+1. Eisenhower quadrant placement and scores (1-10) for Urgency and Importance.
+2. Suggested priority ('high', 'medium', 'low') and suggested category ('Work', 'Study', 'Personal').
+3. Exactly 3 actionable subtasks to complete this task.
+4. Estimated focus effort hours.
+5. Exactly 3 productivity tips/hacks.
+6. A concise, user-friendly AI Insights card (e.g. 'This task is high priority because the deadline is near.').
+7. A specific, actionable AI Recommendation (e.g. 'Complete this before other medium-priority tasks.').`;
 
       const response = await client.models.generateContent({
         model: "gemini-3.5-flash",
         contents: prompt,
         config: {
-          systemInstruction: `You are TaskPilot AI, an elite schedule coach. You analyze a task's priority, urgency, and description to categorize it into one of the 4 Eisenhower matrix quadrants:
-1. 'Urgent & Important' (Do first - tasks with close deadlines or high-stakes impact)
-2. 'Important but Not Urgent' (Schedule - tasks that build long-term value but have ample time or no strict immediate deadline)
-3. 'Urgent but Not Important' (Delegate - tasks that demand immediate attention but don't contribute heavily to long-term goals)
-4. 'Not Urgent & Not Important' (Eliminate / Delay - tasks that are trivial or can easily be deferred)
-
-Always return the response in strict JSON matching the requested schema. Do not include markdown formatting or wrapper other than the schema itself.`,
+          systemInstruction: `You are TaskPilot AI, an elite personal productivity coach and schedule optimizer. You analyze tasks and output structured JSON.
+Make sure suggestedPriority is exactly one of 'high', 'medium', 'low'.
+Make sure suggestedCategory is exactly one of 'Work', 'Study', 'Personal'.
+Return exactly 3 clear, concrete subtasks, and 3 productivity tips.
+Generate highly descriptive, human-sounding reasons for the AI Insights and AI Recommendations.`,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -98,6 +103,32 @@ Always return the response in strict JSON matching the requested schema. Do not 
               estimatedHours: {
                 type: Type.NUMBER,
                 description: "Estimated focus time required to complete this task (e.g., 1.5, 3, 0.5)."
+              },
+              suggestedPriority: {
+                type: Type.STRING,
+                description: "Suggested priority: 'high', 'medium', or 'low'."
+              },
+              suggestedCategory: {
+                type: Type.STRING,
+                description: "Suggested category: 'Work', 'Study', or 'Personal'."
+              },
+              subtasks: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                description: "3 highly specific, clear and actionable subtasks."
+              },
+              productivityTips: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                description: "3 customized productivity tips or hacks for maximum efficiency."
+              },
+              aiInsightsCard: {
+                type: Type.STRING,
+                description: "A short statement summarizing why this task has this priority/urgency."
+              },
+              aiRecommendationText: {
+                type: Type.STRING,
+                description: "A clear suggestion about when or how to execute this task relative to other items."
               }
             },
             required: [
@@ -107,7 +138,13 @@ Always return the response in strict JSON matching the requested schema. Do not 
               "suggestions",
               "actionPlan",
               "timeManagementTechnique",
-              "estimatedHours"
+              "estimatedHours",
+              "suggestedPriority",
+              "suggestedCategory",
+              "subtasks",
+              "productivityTips",
+              "aiInsightsCard",
+              "aiRecommendationText"
             ]
           }
         }

@@ -18,6 +18,13 @@ export interface AIAnalysis {
   actionPlan: string;
   timeManagementTechnique: string;
   estimatedHours: number;
+  // Upgraded real Gemini analysis properties
+  suggestedPriority?: Priority;
+  suggestedCategory?: string;
+  subtasks?: string[];
+  productivityTips?: string[];
+  aiInsightsCard?: string;
+  aiRecommendationText?: string;
 }
 
 export interface TaskLocation {

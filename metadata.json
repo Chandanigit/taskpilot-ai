@@ -1,6 +1,6 @@
 {
   "name": "TaskPilot AI",
   "description": "An AI-powered productivity assistant that helps users manage tasks, deadlines, and priorities with smart analysis and Eisenhower matrix recommendations.",
-  "requestFramePermissions": ["geolocation"],
+  "requestFramePermissions": ["geolocation", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

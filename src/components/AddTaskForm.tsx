@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Priority, Category, Task, AIAnalysis, UserType } from '../types';
-import { Plus, Sparkles, Loader2, Calendar, AlertCircle, HelpCircle, MapPin } from 'lucide-react';
+import { Plus, Sparkles, Loader2, Calendar, AlertCircle, HelpCircle, MapPin, Mic, MicOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface AddTaskFormProps {
@@ -28,6 +28,77 @@ export default function AddTaskForm({ onAddTask, userType }: AddTaskFormProps) {
   });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Speech Recognition States & Logic
+  const [isListening, setIsListening] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
+
+  const startSpeechRecognition = () => {
+    const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) {
+      setErrorMsg('Speech recognition is not supported in this browser. Try Chrome, Edge, or Safari.');
+      setTimeout(() => setErrorMsg(null), 5000);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognitionClass();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setVoiceStatus('Listening... Speak now!');
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error', event);
+        setIsListening(false);
+        setVoiceStatus(null);
+        setErrorMsg(`Speech recognition error: ${event.error || 'unknown'}`);
+        setTimeout(() => setErrorMsg(null), 5000);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        if (transcript && transcript.trim()) {
+          const cleanTranscript = transcript.trim();
+          // Capitalize first letter
+          const capitalized = cleanTranscript.charAt(0).toUpperCase() + cleanTranscript.slice(1);
+          
+          setTitle(capitalized);
+          setDescription(`Created via Voice Recognition: "${cleanTranscript}"`);
+          
+          setVoiceStatus('Voice recognized successfully');
+          setTimeout(() => setVoiceStatus(null), 4000);
+
+          // Smart auto-date extraction
+          const lower = cleanTranscript.toLowerCase();
+          if (lower.includes('today')) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            setDeadline(todayStr);
+          } else if (lower.includes('tomorrow')) {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            setDeadline(tomorrow.toISOString().split('T')[0]);
+          }
+        }
+      };
+
+      recognition.start();
+    } catch (err: any) {
+      console.error('Speech recognition exception:', err);
+      setErrorMsg('Could not start speech recognition.');
+      setTimeout(() => setErrorMsg(null), 5000);
+      setIsListening(false);
+      setVoiceStatus(null);
+    }
+  };
 
   // GIS Location States
   const [hasLocation, setHasLocation] = useState(false);
@@ -119,6 +190,32 @@ export default function AddTaskForm({ onAddTask, userType }: AddTaskFormProps) {
       estimatedHours = priority === 'high' ? 2.5 : 1;
     }
 
+    // Suggested category mapping
+    let suggestedCategory = 'Work';
+    if (category === 'Education') suggestedCategory = 'Study';
+    else if (category === 'Personal' || category === 'Health') suggestedCategory = 'Personal';
+    else if (category === 'Work' || category === 'Finance') suggestedCategory = 'Work';
+
+    // Offline subtasks
+    const subtasks = [
+      `Review task requirements for: ${title}`,
+      `Draft initial outline / layout of key components`,
+      `Finalize delivery and run a self-review checkpoint`
+    ];
+
+    // Offline productivity tips
+    const productivityTips = [
+      `Focus for 25 minutes using the ${technique} technique.`,
+      `Minimize tab clutter to only the document required for this task.`,
+      `Review progress at the midpoint of your estimated ${estimatedHours} hours.`
+    ];
+
+    // Offline insights & recommendations
+    const aiInsightsCard = `This task is marked as ${priority} priority. Urgency is ${urgencyScore}/10 and importance is ${importanceScore}/10 based on local analysis.`;
+    const aiRecommendationText = priority === 'high' 
+      ? 'Complete this first to avoid bottlenecking other dependencies!' 
+      : 'Handle this during low-energy focus blocks to protect critical tasks.';
+
     return {
       urgencyScore,
       importanceScore,
@@ -126,7 +223,13 @@ export default function AddTaskForm({ onAddTask, userType }: AddTaskFormProps) {
       suggestions,
       actionPlan: startingStep,
       timeManagementTechnique: technique,
-      estimatedHours
+      estimatedHours,
+      suggestedPriority: priority,
+      suggestedCategory,
+      subtasks,
+      productivityTips,
+      aiInsightsCard,
+      aiRecommendationText
     };
   };
 
@@ -166,13 +269,28 @@ export default function AddTaskForm({ onAddTask, userType }: AddTaskFormProps) {
 
       const aiAnalysis: AIAnalysis = await response.json();
 
+      // Map AI Suggested Category and Priority if they exist
+      let finalPriority = priority;
+      if (aiAnalysis.suggestedPriority) {
+        finalPriority = aiAnalysis.suggestedPriority;
+      }
+      
+      let finalCategory = category;
+      if (aiAnalysis.suggestedCategory) {
+        if (aiAnalysis.suggestedCategory === 'Study') {
+          finalCategory = 'Education';
+        } else if (aiAnalysis.suggestedCategory === 'Work' || aiAnalysis.suggestedCategory === 'Personal') {
+          finalCategory = aiAnalysis.suggestedCategory as Category;
+        }
+      }
+
       const newTask: Task = {
         id: crypto.randomUUID(),
         title: title.trim(),
         description: description.trim(),
-        priority,
+        priority: finalPriority,
         deadline,
-        category,
+        category: finalCategory,
         completed: false,
         createdAt: new Date().toISOString(),
         aiAnalysis,
@@ -191,13 +309,28 @@ export default function AddTaskForm({ onAddTask, userType }: AddTaskFormProps) {
       // Run the client-side fallback so user is NEVER blocked
       const fallbackAnalysis = getFallbackAnalysis(title, description, priority, deadline, category, userType);
 
+      // Map fallback suggested properties
+      let fallbackPriority = priority;
+      if (fallbackAnalysis.suggestedPriority) {
+        fallbackPriority = fallbackAnalysis.suggestedPriority;
+      }
+      
+      let fallbackCategory = category;
+      if (fallbackAnalysis.suggestedCategory) {
+        if (fallbackAnalysis.suggestedCategory === 'Study') {
+          fallbackCategory = 'Education';
+        } else if (fallbackAnalysis.suggestedCategory === 'Work' || fallbackAnalysis.suggestedCategory === 'Personal') {
+          fallbackCategory = fallbackAnalysis.suggestedCategory as Category;
+        }
+      }
+
       const newTask: Task = {
         id: crypto.randomUUID(),
         title: title.trim(),
         description: description.trim(),
-        priority,
+        priority: fallbackPriority,
         deadline,
-        category,
+        category: fallbackCategory,
         completed: false,
         createdAt: new Date().toISOString(),
         aiAnalysis: fallbackAnalysis,
@@ -235,19 +368,56 @@ export default function AddTaskForm({ onAddTask, userType }: AddTaskFormProps) {
       <form onSubmit={handleSubmit} className="mt-5 space-y-4">
         {/* Title */}
         <div>
-          <label htmlFor="task-title" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-            Task Title *
-          </label>
-          <input
-            id="task-title"
-            type="text"
-            required
-            placeholder="e.g., Finalize marketing proposal"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            disabled={isAnalyzing}
-            className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 px-4 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 focus:outline-none transition-colors"
-          />
+          <div className="flex items-center justify-between mb-1">
+            <label htmlFor="task-title" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+              Task Title *
+            </label>
+            <AnimatePresence>
+              {voiceStatus && (
+                <motion.span
+                  initial={{ opacity: 0, y: -2 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -2 }}
+                  className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                    voiceStatus.includes('successfully')
+                      ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+                      : 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 animate-pulse'
+                  }`}
+                >
+                  {voiceStatus}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </div>
+          <div className="flex gap-2">
+            <input
+              id="task-title"
+              type="text"
+              required
+              placeholder="e.g., Finalize marketing proposal"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={isAnalyzing}
+              className="flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 px-4 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 focus:outline-none transition-colors"
+            />
+            <button
+              type="button"
+              onClick={startSpeechRecognition}
+              disabled={isAnalyzing}
+              title="Click to dictate task title & description"
+              className={`px-3.5 rounded-xl border transition-all flex items-center justify-center shrink-0 cursor-pointer ${
+                isListening
+                  ? 'bg-rose-500 border-rose-500 text-white animate-pulse shadow-md shadow-rose-500/20'
+                  : 'bg-slate-50/50 dark:bg-slate-950/30 border-slate-200 dark:border-slate-800 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-900'
+              }`}
+            >
+              {isListening ? (
+                <MicOff className="h-4 w-4" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Description */}

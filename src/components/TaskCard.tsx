@@ -12,7 +12,13 @@ import {
   TrendingUp,
   BrainCircuit,
   Zap,
-  MapPin
+  MapPin,
+  CheckSquare,
+  Square,
+  Lightbulb,
+  Layers,
+  Hourglass,
+  AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -26,6 +32,14 @@ interface TaskCardProps {
 
 export default function TaskCard({ task, onToggleComplete, onDeleteTask, onViewOnMap }: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [completedSubtasks, setCompletedSubtasks] = useState<Record<string, boolean>>({});
+
+  const toggleSubtask = (subtask: string) => {
+    setCompletedSubtasks(prev => ({
+      ...prev,
+      [subtask]: !prev[subtask]
+    }));
+  };
 
   // Helper: Format relative deadline string
   const getDeadlineStatus = (deadlineStr: string) => {
@@ -209,86 +223,194 @@ export default function TaskCard({ task, onToggleComplete, onDeleteTask, onViewO
             transition={{ duration: 0.25, ease: 'easeInOut' }}
             className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 overflow-hidden"
           >
-            <div className="p-4 sm:p-5 border-l-4 border-indigo-500/80 bg-gradient-to-r from-indigo-50/30 dark:from-indigo-950/10 to-transparent">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900 dark:text-indigo-200 mb-4">
-                <BrainCircuit className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
-                <span className="uppercase tracking-wider">AI Pilot Decision Analysis</span>
+            <div className="p-4 sm:p-5 border-l-4 border-indigo-500/80 bg-gradient-to-r from-indigo-50/30 dark:from-indigo-950/10 to-transparent space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900 dark:text-indigo-200">
+                  <BrainCircuit className="h-4 w-4 text-indigo-500 dark:text-indigo-400 animate-pulse" />
+                  <span className="uppercase tracking-wider">AI Pilot Decision Analysis</span>
+                </div>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Powered by Gemini 3.5</span>
               </div>
 
-              {/* Quadrant, Urgency, Importance breakdown */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="rounded-xl bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/80 p-3 shadow-2xs">
-                  <span className="text-2xs font-semibold uppercase text-slate-400 dark:text-slate-500 tracking-wider">Matrix Verdict</span>
-                  <div className="mt-1 flex items-center gap-1 text-sm font-bold text-slate-800 dark:text-slate-200">
-                    <Zap className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                    <span>{task.aiAnalysis.recommendation}</span>
+              {/* AI Insights & Recommendation Callouts */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {task.aiAnalysis.aiInsightsCard && (
+                  <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/20 dark:to-violet-950/20 border border-indigo-100/60 dark:border-indigo-900/40 p-3 shadow-2xs">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950 dark:text-indigo-200 mb-1">
+                      <Sparkles className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                      <span>AI Insights</span>
+                    </div>
+                    <p className="text-xs text-indigo-900/90 dark:text-indigo-300/95 font-medium leading-relaxed">
+                      {task.aiAnalysis.aiInsightsCard}
+                    </p>
                   </div>
-                </div>
+                )}
 
-                <div className="rounded-xl bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/80 p-3 shadow-2xs">
-                  <span className="text-2xs font-semibold uppercase text-slate-400 dark:text-slate-500 tracking-wider">Urgency Score</span>
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className="font-mono text-sm font-bold text-slate-800 dark:text-slate-200">{task.aiAnalysis.urgencyScore}/10</span>
-                    <div className="h-1.5 flex-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-amber-500"
-                        style={{ width: `${task.aiAnalysis.urgencyScore * 10}%` }}
-                      />
+                {task.aiAnalysis.aiRecommendationText && (
+                  <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 border border-emerald-100/60 dark:border-emerald-900/40 p-3 shadow-2xs">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950 dark:text-emerald-200 mb-1">
+                      <Zap className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      <span>AI Recommendation</span>
+                    </div>
+                    <p className="text-xs text-emerald-900/90 dark:text-emerald-300/95 font-medium leading-relaxed">
+                      {task.aiAnalysis.aiRecommendationText}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Quadrant, Urgency, Importance, & Suggestions breakdown */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                
+                {/* Urgency & Importance Breakdown */}
+                <div className="space-y-3">
+                  <span className="text-2xs font-extrabold uppercase text-slate-400 dark:text-slate-500 tracking-wider block font-mono">Eisenhower Metric Analysis</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-xl bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/80 p-2.5">
+                      <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 block">Urgency Score</span>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">{task.aiAnalysis.urgencyScore}/10</span>
+                        <div className="h-1 flex-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-amber-500"
+                            style={{ width: `${task.aiAnalysis.urgencyScore * 10}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/80 p-2.5">
+                      <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 block">Importance Score</span>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">{task.aiAnalysis.importanceScore}/10</span>
+                        <div className="h-1 flex-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-rose-500"
+                            style={{ width: `${task.aiAnalysis.importanceScore * 10}%` }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
+
+                  {/* AI Suggested Priority & Category Badges */}
+                  {(task.aiAnalysis.suggestedPriority || task.aiAnalysis.suggestedCategory) && (
+                    <div className="rounded-xl bg-slate-100/50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800/50 p-2.5 flex flex-col gap-1.5">
+                      <span className="text-[9px] font-extrabold uppercase text-slate-400 dark:text-slate-500 tracking-wider font-mono">Suggested Classifications</span>
+                      <div className="flex flex-wrap gap-2">
+                        {task.aiAnalysis.suggestedPriority && (
+                          <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 font-bold rounded-lg ${
+                            task.aiAnalysis.suggestedPriority === 'high' 
+                              ? 'bg-rose-100/60 text-rose-800 dark:bg-rose-950/40 dark:text-rose-400' 
+                              : task.aiAnalysis.suggestedPriority === 'medium' 
+                                ? 'bg-amber-100/60 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400' 
+                                : 'bg-emerald-100/60 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400'
+                          }`}>
+                            <AlertTriangle className="h-3 w-3" />
+                            Priority: {task.aiAnalysis.suggestedPriority.toUpperCase()}
+                          </span>
+                        )}
+                        {task.aiAnalysis.suggestedCategory && (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 font-bold rounded-lg bg-indigo-100/60 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-400">
+                            <Layers className="h-3 w-3" />
+                            Category: {task.aiAnalysis.suggestedCategory}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Immediate Micro-Step */}
+                  <div className="rounded-xl bg-indigo-50/40 dark:bg-indigo-950/10 border border-indigo-100/40 dark:border-indigo-900/20 p-2.5">
+                    <span className="text-[10px] font-bold text-indigo-950 dark:text-indigo-300 block mb-0.5">Immediate Micro-Step (Action Plan)</span>
+                    <p className="text-[11px] text-indigo-800 dark:text-indigo-400 font-medium leading-normal">
+                      {task.aiAnalysis.actionPlan}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="rounded-xl bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/80 p-3 shadow-2xs">
-                  <span className="text-2xs font-semibold uppercase text-slate-400 dark:text-slate-500 tracking-wider">Importance Score</span>
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className="font-mono text-sm font-bold text-slate-800 dark:text-slate-200">{task.aiAnalysis.importanceScore}/10</span>
-                    <div className="h-1.5 flex-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-rose-500"
-                        style={{ width: `${task.aiAnalysis.importanceScore * 10}%` }}
-                      />
+                {/* Interactive Actionable Subtasks */}
+                {task.aiAnalysis.subtasks && task.aiAnalysis.subtasks.length > 0 ? (
+                  <div className="rounded-xl bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/80 p-3 flex flex-col gap-2 shadow-3xs">
+                    <span className="text-2xs font-extrabold uppercase text-slate-400 dark:text-slate-500 tracking-wider block font-mono">Actionable Subtasks Checklist</span>
+                    <div className="flex flex-col gap-1.5">
+                      {task.aiAnalysis.subtasks.map((sub, idx) => {
+                        const isSubCompleted = !!completedSubtasks[sub];
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => toggleSubtask(sub)}
+                            className="flex items-start gap-2 text-left p-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors cursor-pointer text-slate-700 dark:text-slate-300 group"
+                          >
+                            <span className="mt-0.5 shrink-0 text-slate-400 group-hover:text-indigo-500 transition-colors">
+                              {isSubCompleted ? (
+                                <CheckSquare className="h-4 w-4 text-emerald-500" />
+                              ) : (
+                                <Square className="h-4 w-4" />
+                              )}
+                            </span>
+                            <span className={`text-xs leading-tight transition-all ${isSubCompleted ? 'line-through text-slate-400 dark:text-slate-500' : 'font-medium'}`}>
+                              {sub}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="rounded-xl bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/80 p-3">
+                    <span className="text-2xs font-extrabold uppercase text-slate-400 dark:text-slate-500 tracking-wider block font-mono mb-2">Verdict Details</span>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                      Verifying long-term Eisenhower grid mapping context...
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {/* Starting Step & Strategy */}
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100/60 dark:border-indigo-900/30 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900 dark:text-indigo-300 mb-1">
-                    <Zap className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                    <span>Immediate Micro-Step (Action Plan)</span>
+              {/* Suggestions, Productivity Tips & Target Effort Side-by-Side */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {/* Suggestions / Productivity Tips */}
+                {task.aiAnalysis.productivityTips && task.aiAnalysis.productivityTips.length > 0 ? (
+                  <div className="rounded-xl bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/80 p-3">
+                    <span className="text-2xs font-extrabold uppercase text-slate-400 dark:text-slate-500 tracking-wider block font-mono mb-2">Productivity Tips</span>
+                    <ul className="space-y-1.5">
+                      {task.aiAnalysis.productivityTips.map((tip, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                          <Lightbulb className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+                          <span className="font-medium">{tip}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <p className="text-xs text-indigo-800 dark:text-indigo-300 font-medium">
-                    {task.aiAnalysis.actionPlan}
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-slate-100/70 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800/60 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
-                    <Clock className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                    <span>Time Management & Target Effort</span>
+                ) : (
+                  <div className="rounded-xl bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/80 p-3">
+                    <span className="text-2xs font-extrabold uppercase text-slate-400 dark:text-slate-500 tracking-wider block font-mono mb-2">Tailored Smart Suggestions</span>
+                    <ul className="space-y-1.5">
+                      {task.aiAnalysis.suggestions.map((suggestion, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                          <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
+                          <span>{suggestion}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
-                    Technique: <span className="font-semibold text-slate-900 dark:text-white">{task.aiAnalysis.timeManagementTechnique}</span>
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Allocated focus: <span className="font-semibold text-slate-800 dark:text-slate-200">{task.aiAnalysis.estimatedHours} hrs</span>
-                  </p>
-                </div>
-              </div>
+                )}
 
-              {/* Suggestions */}
-              <div className="mt-4">
-                <h5 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider mb-2">Tailored Smart Suggestions</h5>
-                <ul className="space-y-2">
-                  {task.aiAnalysis.suggestions.map((suggestion, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                      <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
-                      <span>{suggestion}</span>
-                    </li>
-                  ))}
-                </ul>
+                {/* Time Technique & Estimated Hours */}
+                <div className="rounded-xl bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/80 p-3 flex flex-col justify-between gap-2">
+                  <div>
+                    <span className="text-2xs font-extrabold uppercase text-slate-400 dark:text-slate-500 tracking-wider block font-mono mb-1">Time & Target Strategy</span>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 font-semibold leading-normal">
+                      Technique: <span className="text-indigo-600 dark:text-indigo-400">{task.aiAnalysis.timeManagementTechnique}</span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 border-t border-slate-100 dark:border-slate-800/60 pt-2 text-xs">
+                    <Hourglass className="h-4 w-4 text-indigo-500 shrink-0" />
+                    <span className="text-slate-500 dark:text-slate-400">
+                      Estimated Completion Time: <strong className="text-slate-800 dark:text-white font-bold">{task.aiAnalysis.estimatedHours} Hours</strong>
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </motion.div>
