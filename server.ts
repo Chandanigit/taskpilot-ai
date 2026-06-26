@@ -169,6 +169,157 @@ Provide brief, motivating, and extremely specific coaching advice. When they ask
     }
   });
 
+  // API Endpoint: AI Location Insights
+  app.post("/api/analyze-locations", async (req, res) => {
+    try {
+      const { tasks, userLocation } = req.body;
+
+      if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
+        return res.status(400).json({ error: "At least one mapped task is required for analysis." });
+      }
+
+      // Pre-calculate geographic metadata to ground the Gemini prompt
+      const getDist = (p1: { lat: number; lng: number }, p2: { lat: number; lng: number }) => {
+        const R = 6371; // Earth radius in km
+        const dLat = ((p2.lat - p1.lat) * Math.PI) / 180;
+        const dLng = ((p2.lng - p1.lng) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((p1.lat * Math.PI) / 180) *
+            Math.cos((p2.lat * Math.PI) / 180) *
+            Math.sin(dLng / 2) *
+            Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      };
+
+      // Calculate distance between all pairs of tasks
+      const distancePairs: Array<{ t1: string; t2: string; d: number }> = [];
+      const highPriorityFarApart: Array<{ t1: string; t2: string; d: number }> = [];
+
+      for (let i = 0; i < tasks.length; i++) {
+        for (let j = i + 1; j < tasks.length; j++) {
+          const t1 = tasks[i];
+          const t2 = tasks[j];
+          if (t1.location && t2.location) {
+            const d = getDist(t1.location, t2.location);
+            distancePairs.push({ t1: t1.title, t2: t2.title, d });
+
+            if (t1.priority === "high" && t2.priority === "high" && d > 5) {
+              highPriorityFarApart.push({ t1: t1.title, t2: t2.title, d });
+            }
+          }
+        }
+      }
+
+      // Group nearby tasks (e.g., within 2km)
+      const nearbyGroupings: Record<string, string[]> = {};
+      tasks.forEach((t) => {
+        if (!t.location) return;
+        const neighbors = tasks
+          .filter((other) => other.id !== t.id && other.location && getDist(t.location!, other.location) <= 2)
+          .map((other) => other.title);
+        if (neighbors.length > 0) {
+          nearbyGroupings[t.title] = neighbors;
+        }
+      });
+
+      const client = getGeminiClient();
+
+      const prompt = `Analyze these mapped tasks to provide geographic productivity insights, clusters, routing sequence suggestions, high-priority separation warnings, and travel efficiency scores:
+- Mapped Tasks: ${JSON.stringify(tasks, null, 2)}
+- User Location: ${userLocation ? JSON.stringify(userLocation) : "Not available"}
+- Pre-calculated Distance Pairs (km): ${JSON.stringify(distancePairs.map(p => `${p.t1} to ${p.t2}: ${p.d.toFixed(2)}km`))}
+- High-Priority far apart (>5km): ${JSON.stringify(highPriorityFarApart.map(p => `${p.t1} & ${p.t2} are separated by ${p.d.toFixed(2)}km`))}
+- Proximity Groupings (within 2km): ${JSON.stringify(nearbyGroupings)}
+
+Analyze this spatial distribution and return the result in strict compliance with the response schema.`;
+
+      const response = await client.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: `You are TaskPilot GIS AI, an elite spatial logistics planner. Your job is to analyze active mapped tasks and provide geographic insights:
+1. Detect task clusters based on proximity (usually tasks within 2-3km are in the same cluster). Give each cluster a human-friendly name (e.g., "Exhibition Road Hub", "Fraser Road Business District") and assign the matching task IDs.
+2. Suggest the best sequence to complete the tasks logically, starting from the User Location (if available) or the most critical task. Sequence should minimize backtrack travel while respecting priority.
+3. Warn if two high-priority tasks are far apart (>5km) to help the user avoid running across town twice.
+4. Calculate a travel productivity score (1-100) based on transit efficiency:
+   - 90-100: Tasks are highly concentrated or in a single cluster. Minimal travel needed.
+   - 70-89: Tasks are grouped into 2 distinct clusters with clear travel paths.
+   - 45-69: Moderate dispersion. Tasks are scattered but logical routing is possible.
+   - <45: Highly scattered tasks. High transit overhead.
+Provide clear explanation and constructive suggestions for improving their travel path.
+
+Always return the response in strict JSON matching the requested schema. Do not include markdown formatting or wrapper other than the schema itself.`,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              clusters: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    name: { type: Type.STRING, description: "Descriptive name for this cluster." },
+                    taskIds: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING },
+                      description: "List of task IDs belonging to this cluster."
+                    },
+                    description: { type: Type.STRING, description: "A brief, one-sentence description explaining why these tasks are grouped." }
+                  },
+                  required: ["name", "taskIds", "description"]
+                }
+              },
+              suggestedSequence: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    taskId: { type: Type.STRING },
+                    reason: { type: Type.STRING, description: "Logistical reason for doing this task in this order." }
+                  },
+                  required: ["taskId", "reason"]
+                }
+              },
+              warnings: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    type: { type: Type.STRING, description: "The category of warning, e.g., 'HIGH_PRIORITY_GAP', 'SCATTERED_WORKLOAD', or 'OPTIMAL_DENSITY'." },
+                    message: { type: Type.STRING, description: "User-facing warning message." }
+                  },
+                  required: ["type", "message"]
+                }
+              },
+              productivityScore: {
+                type: Type.INTEGER,
+                description: "Productivity score from 1 to 100 based on transit efficiency."
+              },
+              efficiencyExplanation: {
+                type: Type.STRING,
+                description: "A summary explaining the score and offering spatial advice."
+              }
+            },
+            required: ["clusters", "suggestedSequence", "warnings", "productivityScore", "efficiencyExplanation"]
+          }
+        }
+      });
+
+      const responseText = response.text;
+      if (!responseText) {
+        throw new Error("Empty response received from Gemini.");
+      }
+
+      const parsedAnalysis = JSON.parse(responseText.trim());
+      res.json(parsedAnalysis);
+    } catch (error: any) {
+      console.error("Error in /api/analyze-locations:", error);
+      res.status(500).json({ error: error.message || "Failed to generate AI Location Insights." });
+    }
+  });
+
   // Serve static files and integrate Vite dev middleware
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
